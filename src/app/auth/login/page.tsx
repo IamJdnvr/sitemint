@@ -10,6 +10,7 @@ import { Eye, EyeOff, Loader2, ArrowLeft, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase";
+import { createLocalAuthClient } from "@/lib/local-auth";
 import { loginSchema } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { useCooldown } from "@/hooks/useCooldown";
@@ -178,27 +179,26 @@ export default function LoginPage() {
             <button
               onClick={async () => {
                 setLoading(true);
+
+                // Try real Supabase anonymous sign-in first
                 const { error } = await supabase.auth.signInAnonymously({
                   options: { data: { is_guest: true, display_name: "Guest" } },
                 });
-                if (error) {
-                  const isSupabaseDisabled =
-                    (error as any)?.status === 400 &&
-                    (error.message?.toLowerCase().includes("anonymous") ||
-                     error.message?.toLowerCase().includes("disabled"));
 
-                  if (isSupabaseDisabled) {
-                    toast({
-                      title: "Guest sign-in not available",
-                      description:
-                        "Enable anonymous sign-ins in your Supabase dashboard: " +
-                        "Authentication → Settings → Anonymous Sign-Ins.",
-                      variant: "destructive",
-                    });
+                if (error) {
+                  // Supabase rejected the request (anonymous not enabled or 422)
+                  // Fall back to localStorage-based guest login
+                  const localClient = createLocalAuthClient();
+                  const { error: localError } = await localClient.auth.signInAnonymously({
+                    options: { data: { is_guest: true, display_name: "Guest" } },
+                  });
+
+                  if (localError) {
+                    toast({ title: "Error", description: localError.message, variant: "destructive" });
+                    setLoading(false);
                   } else {
-                    toast({ title: "Error", description: error.message, variant: "destructive" });
+                    router.push("/dashboard");
                   }
-                  setLoading(false);
                 } else {
                   router.push("/dashboard");
                 }
