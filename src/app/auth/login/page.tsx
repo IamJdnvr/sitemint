@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase";
 import { loginSchema } from "@/types";
 import { useToast } from "@/hooks/use-toast";
+import { useCooldown } from "@/hooks/useCooldown";
 import { z } from "zod";
 
 type LoginForm = z.infer<typeof loginSchema>;
@@ -29,14 +30,31 @@ export default function LoginPage() {
     formState: { errors },
   } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
 
+  const { cooldown, startCooldown } = useCooldown(3);
+
   const onSubmit = async (data: LoginForm) => {
+    startCooldown();
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
     });
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      const isRateLimit =
+        (error as any)?.status === 429 ||
+        error.message?.toLowerCase().includes("rate limit") ||
+        error.message?.toLowerCase().includes("429") ||
+        error.message?.toLowerCase().includes("too many requests");
+
+      if (isRateLimit) {
+        toast({
+          title: "Too many attempts",
+          description: "Rate limit reached — please wait a few minutes and try again.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+      }
     } else {
       router.push("/dashboard");
     }
@@ -133,11 +151,13 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || cooldown > 0}
               className="brutal-btn brutal-btn-mint w-full justify-center text-base py-3"
             >
               {loading ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Signing in...</>
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {cooldown > 0 ? "Please wait..." : "Signing in..."}</>
+              ) : cooldown > 0 ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Wait {cooldown}s</>
               ) : (
                 "Sign In"
               )}

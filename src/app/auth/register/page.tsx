@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase";
 import { registerSchema } from "@/types";
 import { useToast } from "@/hooks/use-toast";
+import { useCooldown } from "@/hooks/useCooldown";
 import { z } from "zod";
 
 type RegisterForm = z.infer<typeof registerSchema>;
@@ -30,7 +31,10 @@ export default function RegisterPage() {
     formState: { errors },
   } = useForm<RegisterForm>({ resolver: zodResolver(registerSchema) });
 
+  const { cooldown, startCooldown } = useCooldown(3);
+
   const onSubmit = async (data: RegisterForm) => {
+    startCooldown();
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email: data.email,
@@ -38,7 +42,21 @@ export default function RegisterPage() {
       options: { data: { display_name: data.email.split("@")[0] } },
     });
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      const isRateLimit =
+        (error as any)?.status === 429 ||
+        error.message?.toLowerCase().includes("rate limit") ||
+        error.message?.toLowerCase().includes("429") ||
+        error.message?.toLowerCase().includes("too many requests");
+
+      if (isRateLimit) {
+        toast({
+          title: "Too many attempts",
+          description: "Rate limit reached — please wait a few minutes and try again.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+      }
     } else {
       toast({ title: "Success!", description: "Welcome to SiteMint!", variant: "success" });
       router.push("/dashboard");
@@ -148,11 +166,13 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || cooldown > 0}
               className="brutal-btn brutal-btn-mint w-full justify-center text-base py-3"
             >
               {loading ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating account...</>
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {cooldown > 0 ? "Please wait..." : "Creating account..."}</>
+              ) : cooldown > 0 ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Wait {cooldown}s</>
               ) : (
                 "Create Account"
               )}
