@@ -22,6 +22,9 @@ import {
   Layout,
   FilePlus,
   Sparkles,
+  UserPlus,
+  EyeOff,
+  Loader2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -33,6 +36,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
+import { createClient } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import type { Website } from "@/types";
 
@@ -43,6 +47,11 @@ export default function DashboardPage() {
   const [websites, setWebsites] = useState<Website[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [linkEmail, setLinkEmail] = useState("");
+  const [linkPassword, setLinkPassword] = useState("");
+  const [linkLoading, setLinkLoading] = useState(false);
+  const [showLinkPassword, setShowLinkPassword] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -195,6 +204,156 @@ export default function DashboardPage() {
         </header>
 
         <main className="p-6">
+          {/* ─── Guest banner ────────────────────── */}
+          {user?.is_guest && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 p-4 flex items-center gap-3"
+              style={{
+                background: "var(--mint-light)",
+                border: "4px solid var(--brutal-black)",
+                boxShadow: "6px 6px 0px var(--brutal-black)",
+              }}
+            >
+              <Sparkles className="w-5 h-5 shrink-0" style={{ color: "var(--mint-deep)" }} />
+              <p className="text-sm font-bold flex-1">
+                You&apos;re browsing as a guest.{" "}
+                <span
+                  onClick={() => setShowLinkDialog(true)}
+                  className="underline font-black cursor-pointer"
+                  style={{ color: "var(--mint-deep)" }}
+                >
+                  Save your work
+                </span>{" "}
+                by creating an account — your projects will be kept.
+              </p>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setShowLinkDialog(true)}
+                  className="brutal-btn brutal-btn-sm brutal-btn-mint"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span className="hidden sm:inline">Save My Work</span>
+                </button>
+                <button
+                  onClick={() => {
+                    signOut();
+                    router.push("/");
+                  }}
+                  className="brutal-btn brutal-btn-sm"
+                  style={{
+                    background: "var(--brutal-black)",
+                    color: "#ffffff",
+                    boxShadow: "4px 4px 0px var(--brutal-black)",
+                  }}
+                >
+                  Leave
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ─── Link account dialog ────────────── */}
+          <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Save Your Work</DialogTitle>
+                <DialogDescription>
+                  Create an account to keep your projects. All your websites will be preserved.
+                </DialogDescription>
+              </DialogHeader>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!linkEmail || !linkPassword) return;
+                  if (linkPassword.length < 6) {
+                    toast({ title: "Password too short", description: "Use at least 6 characters.", variant: "destructive" });
+                    return;
+                  }
+                  setLinkLoading(true);
+                  const supabase = createClient();
+
+                  // Guard: convertGuestAccount only exists on the local auth client
+                  if (typeof supabase.auth.convertGuestAccount !== "function") {
+                    toast({
+                      title: "Not available",
+                      description:
+                        "Guest account conversion is only supported in demo mode. " +
+                        "Please sign up normally.",
+                      variant: "destructive",
+                    });
+                    setLinkLoading(false);
+                    return;
+                  }
+
+                  const { error } = await supabase.auth.convertGuestAccount({
+                    email: linkEmail,
+                    password: linkPassword,
+                    display_name: linkEmail.split("@")[0],
+                  });
+                  if (error) {
+                    toast({ title: "Error", description: error.message, variant: "destructive" });
+                    setLinkLoading(false);
+                  } else {
+                    toast({ title: "Account created! 🎉", description: "Your projects are now linked to your account.", variant: "success" });
+                    setShowLinkDialog(false);
+                    setLinkEmail("");
+                    setLinkPassword("");
+                    setLinkLoading(false);
+                  }
+                }}
+                className="space-y-4"
+              >
+                <div className="space-y-2">
+                  <label className="text-sm font-bold brutal-text-dark">Email</label>
+                  <input
+                    value={linkEmail}
+                    onChange={(e) => setLinkEmail(e.target.value)}
+                    type="email"
+                    placeholder="you@example.com"
+                    required
+                    className="w-full px-3 py-2 text-sm"
+                    style={{ border: "3px solid var(--brutal-black)", borderRadius: 0, outline: "none" }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold brutal-text-dark">Password</label>
+                  <div className="relative">
+                    <input
+                      value={linkPassword}
+                      onChange={(e) => setLinkPassword(e.target.value)}
+                      type={showLinkPassword ? "text" : "password"}
+                      placeholder="At least 6 characters"
+                      required
+                      minLength={6}
+                      className="w-full px-3 py-2 text-sm pr-10"
+                      style={{ border: "3px solid var(--brutal-black)", borderRadius: 0, outline: "none" }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowLinkPassword(!showLinkPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 brutal-text-muted"
+                    >
+                      {showLinkPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={linkLoading}
+                  className="brutal-btn brutal-btn-mint w-full justify-center text-base py-3"
+                >
+                  {linkLoading ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating account...</>
+                  ) : (
+                    <><UserPlus className="w-4 h-4 mr-2" /> Save My Work</>
+                  )}
+                </button>
+              </form>
+            </DialogContent>
+          </Dialog>
+
           {/* ─── Stats ────────────────────────────── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
             {[

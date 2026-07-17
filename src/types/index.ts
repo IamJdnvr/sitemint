@@ -7,6 +7,7 @@ export type User = {
   display_name?: string;
   avatar_url?: string;
   created_at: string;
+  is_guest?: boolean;
 };
 
 // ========== Website / Project ==========

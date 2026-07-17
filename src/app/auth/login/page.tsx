@@ -6,7 +6,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff, Loader2, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, Loader2, ArrowLeft, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase";
@@ -164,7 +164,63 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-8 text-center">
+          {/* Guest login */}
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full" style={{ borderTop: "3px solid var(--brutal-black)" }} />
+              </div>
+              <div className="relative flex justify-center text-xs font-bold">
+                <span className="px-3 brutal-bg-light brutal-text-muted">OR</span>
+              </div>
+            </div>
+
+            <button
+              onClick={async () => {
+                setLoading(true);
+                const { error } = await supabase.auth.signInAnonymously({
+                  options: { data: { is_guest: true, display_name: "Guest" } },
+                });
+                if (error) {
+                  const isSupabaseDisabled =
+                    (error as any)?.status === 400 &&
+                    (error.message?.toLowerCase().includes("anonymous") ||
+                     error.message?.toLowerCase().includes("disabled"));
+
+                  if (isSupabaseDisabled) {
+                    toast({
+                      title: "Guest sign-in not available",
+                      description:
+                        "Enable anonymous sign-ins in your Supabase dashboard: " +
+                        "Authentication → Settings → Anonymous Sign-Ins.",
+                      variant: "destructive",
+                    });
+                  } else {
+                    toast({ title: "Error", description: error.message, variant: "destructive" });
+                  }
+                  setLoading(false);
+                } else {
+                  router.push("/dashboard");
+                }
+              }}
+              disabled={loading}
+              className="brutal-btn w-full justify-center text-base py-3 mt-6"
+              style={{
+                background: "var(--brutal-black)",
+                color: "#ffffff",
+                boxShadow: "6px 6px 0px var(--brutal-black)",
+              }}
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Continue as Guest
+            </button>
+
+            <p className="text-xs font-bold text-center mt-3 brutal-text-muted">
+              No sign-up needed. Your data is saved locally.
+            </p>
+          </div>
+
+          <div className="mt-6 text-center">
             <p className="text-sm font-bold brutal-text-muted">
               Don&apos;t have an account?{" "}
               <Link href="/auth/register" style={{ color: "var(--mint-deep)" }} className="hover:underline font-black">

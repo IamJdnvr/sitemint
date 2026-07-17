@@ -33,6 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           display_name: session.user.user_metadata?.display_name,
           avatar_url: session.user.user_metadata?.avatar_url,
           created_at: session.user.created_at,
+          is_guest: session.user.user_metadata?.is_guest,
         });
       }
       setLoading(false);
@@ -49,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           display_name: session.user.user_metadata?.display_name,
           avatar_url: session.user.user_metadata?.avatar_url,
           created_at: session.user.created_at,
+          is_guest: session.user.user_metadata?.is_guest,
         });
       } else {
         setUser(null);

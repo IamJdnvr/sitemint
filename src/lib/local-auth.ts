@@ -12,6 +12,7 @@ interface LocalUser {
   user_metadata: {
     display_name?: string;
     avatar_url?: string;
+    is_guest?: boolean;
   };
   created_at: string;
 }
@@ -183,6 +184,85 @@ export function createLocalAuthClient() {
         notifyListeners("SIGNED_IN", session);
 
         return { data: { session, user: newUser }, error: null };
+      },
+
+      signInAnonymously: async (options?: {
+        options?: { data?: Record<string, unknown> };
+      }) => {
+        const guestUser: LocalUser = {
+          id: generateId(),
+          email: `guest_${generateId().slice(0, 8)}@sitemint.app`,
+          user_metadata: {
+            display_name: (options?.options?.data?.display_name as string) || "Guest",
+            is_guest: true,
+            ...(options?.options?.data || {}),
+          },
+          created_at: new Date().toISOString(),
+        };
+
+        const session: LocalSession = {
+          user: guestUser,
+          access_token: generateId(),
+          refresh_token: generateId(),
+        };
+        saveSession(session);
+        notifyListeners("SIGNED_IN", session);
+
+        return { data: { session, user: guestUser }, error: null };
+      },
+
+      convertGuestAccount: async ({
+        email,
+        password,
+        display_name,
+      }: {
+        email: string;
+        password: string;
+        display_name?: string;
+      }) => {
+        const users = getUsers();
+
+        // Check if email already exists
+        if (users.find((u) => u.email === email)) {
+          return {
+            data: {},
+            error: new Error("An account with this email already exists"),
+          };
+        }
+
+        // Get current guest session so we can preserve the user id / data
+        const oldSession = getSession();
+
+        const newUser: LocalUser = {
+          id: oldSession?.user?.id || generateId(),
+          email,
+          user_metadata: {
+            display_name: display_name || email.split("@")[0],
+            is_guest: false,
+          },
+          created_at: oldSession?.user?.created_at || new Date().toISOString(),
+        };
+
+        // Update user in the users list (or create if not there)
+        const existingIdx = users.findIndex((u) => u.id === newUser.id);
+        if (existingIdx >= 0) {
+          users[existingIdx] = newUser;
+        } else {
+          users.push(newUser);
+        }
+        saveUsers(users);
+        localStorage.setItem(`sitemint_pwd_${email}`, password);
+
+        // Update the session with the real user
+        const newSession: LocalSession = {
+          user: newUser,
+          access_token: oldSession?.access_token || generateId(),
+          refresh_token: oldSession?.refresh_token || generateId(),
+        };
+        saveSession(newSession);
+        notifyListeners("SIGNED_IN", newSession);
+
+        return { data: { session: newSession, user: newUser }, error: null };
       },
 
       signOut: async () => {
