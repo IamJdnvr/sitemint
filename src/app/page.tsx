@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { storage, type StorageFile } from "@/lib/storage";
+import OptimizedImage from "@/components/OptimizedImage";
 
 // ─── Default curated images (fallback when no uploaded images) ─
 
@@ -57,11 +58,11 @@ function ImagePicker({
 
   return (
     <div className="relative">
-      <img
+      <OptimizedImage
         src={currentSrc || defaultSrc}
         alt={label}
-        className="w-full h-full object-cover cursor-pointer"
-        loading="lazy"
+        fill
+        className="object-cover cursor-pointer"
         onClick={() => setOpen(!open)}
       />
       {open && uploadedImages.length > 0 && (
@@ -94,11 +95,11 @@ function ImagePicker({
                     border: `2px solid ${img.url === currentSrc ? "var(--mint)" : "transparent"}`,
                   }}
                 >
-                  <img
+                  <OptimizedImage
                     src={img.url}
                     alt={img.name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
+                    fill
+                    className="object-cover"
                   />
                 </button>
               ))}
@@ -294,7 +295,7 @@ export default function HomePage() {
             <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.2 }} className="relative">
               <div className="brutal-card-flat overflow-hidden">
                 <div className="relative">
-                  <img src={heroImage} alt="Website builder dashboard" className="w-full h-auto object-cover" style={{ display: "block" }} />
+                  <OptimizedImage src={heroImage} alt="Website builder dashboard" width={600} height={400} className="w-full h-auto object-cover" />
                   {uploadedImages.length > 0 && (
                     <div className="absolute top-2 right-2 z-10">
                       <ImagePicker

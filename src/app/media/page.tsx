@@ -30,6 +30,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { storage, type StorageFile } from "@/lib/storage";
 import { createClient } from "@/lib/supabase";
+import OptimizedImage from "@/components/OptimizedImage";
 
 export default function MediaLibraryPage() {
   const router = useRouter();
@@ -208,11 +209,11 @@ export default function MediaLibraryPage() {
                     style={{ background: "#F8FAFC" }}
                   >
                     {item.type === "image" || item.type === "svg" ? (
-                      <img
+                      <OptimizedImage
                         src={item.url}
                         alt={item.name}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
+                        fill
+                        className="object-cover"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center" style={{ color: "#BBB" }}>
@@ -237,9 +238,11 @@ export default function MediaLibraryPage() {
                           </DialogHeader>
                           <div className="flex items-center justify-center bg-gray-100 p-4"
                             style={{ border: "3px solid var(--brutal-black)" }}>
-                            <img
+                            <OptimizedImage
                               src={item.url}
                               alt={item.name}
+                              width={800}
+                              height={600}
                               className="max-w-full max-h-[60vh] object-contain"
                             />
                           </div>
