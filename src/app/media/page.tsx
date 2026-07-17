@@ -40,6 +40,13 @@ export default function MediaLibraryPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [dragOver, setDragOver] = useState(false);
+  const [dragCounter, setDragCounter] = useState(0);
+
+  // Reset dragOver when counter reaches 0 (avoids setState-in-setState anti-pattern)
+  useEffect(() => {
+    if (dragCounter <= 0) setDragOver(false);
+  }, [dragCounter]);
 
   const client = createClient();
   const [storageMode, setStorageMode] = useState<"supabase" | "local">("local");
@@ -70,20 +77,17 @@ export default function MediaLibraryPage() {
 
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
+  const processFiles = async (fileList: FileList) => {
     setUploading(true);
     setUploadProgress(0);
 
     let uploaded = 0;
 
-    for (const file of Array.from(files)) {
+    for (const file of Array.from(fileList)) {
       if (file.size > MAX_FILE_SIZE) {
         toast({
           title: `File too large: ${file.name}`,
-          description: `Maximum file size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`,
+          description: `Maximum file size is ${MAX_FILE_SIZE / 1024 / 1024}MB. Your file is ${(file.size / 1024 / 1024).toFixed(1)}MB.`,
           variant: "destructive",
         });
         continue;
@@ -104,7 +108,49 @@ export default function MediaLibraryPage() {
 
     setUploading(false);
     setUploadProgress(0);
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    await processFiles(files);
     e.target.value = "";
+  };
+
+  // ─── Drag and drop handlers ─────────────────────────
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragCounter((c) => c + 1);
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragCounter((c) => Math.max(0, c - 1));
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    setDragCounter(0);
+
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) {
+      toast({ title: "No files detected", description: "Try dragging image or video files.", variant: "destructive" });
+      return;
+    }
+
+    await processFiles(files);
   };
 
   const handleDelete = async (id: string) => {
@@ -191,8 +237,44 @@ export default function MediaLibraryPage() {
         </div>
       )}
 
-      {/* Media grid */}
-      <main className="max-w-6xl mx-auto p-6">
+      {/* Media grid (with drop zone) */}
+      <main
+        className="max-w-6xl mx-auto p-6 relative"
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {/* Drop zone overlay */}
+        {dragOver && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center"
+            style={{
+              background: "rgba(0, 212, 170, 0.08)",
+              border: "4px dashed var(--mint)",
+            }}
+          >
+            <div
+              className="w-24 h-24 flex items-center justify-center mb-4"
+              style={{
+                background: "var(--mint)",
+                border: "4px solid var(--brutal-black)",
+                boxShadow: "8px 8px 0px var(--brutal-black)",
+              }}
+            >
+              <Upload className="w-10 h-10 text-white" />
+            </div>
+            <p className="text-xl font-black brutal-text-dark mb-1">
+              Drop files here
+            </p>
+            <p className="text-sm font-bold brutal-text-muted">
+              Images, videos, and SVGs up to {MAX_FILE_SIZE / 1024 / 1024}MB
+            </p>
+          </motion.div>
+        )}
+
         {mediaItems.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {mediaItems.map((item, i) => (
