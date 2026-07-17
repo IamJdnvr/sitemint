@@ -45,6 +45,7 @@ import { Undo2,
   Edit3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import OptimizedImage from "@/components/OptimizedImage";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -193,7 +194,7 @@ function SectionRenderer({ section, buttonStyle, darkMode, onContactSubmit }: { 
             </div>
             <div className="h-64 bg-gray-200 rounded-2xl flex items-center justify-center text-gray-400">
               {content.image_url ? (
-                <img src={content.image_url} alt="About" className="w-full h-full object-cover rounded-2xl" />
+                <OptimizedImage src={content.image_url} alt="About" fill className="object-cover rounded-2xl" />
               ) : (
                 <Image className="w-12 h-12" />
               )}
