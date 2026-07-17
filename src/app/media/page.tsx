@@ -14,14 +14,14 @@ import {
   Loader2,
   Copy,
   ExternalLink,
+  HardDrive,
+  Database,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Dialog,
@@ -32,16 +32,48 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { generateId } from "@/lib/uuid";
-import type { MediaItem } from "@/types";
+import { storage, type StorageFile } from "@/lib/storage";
+import { createClient } from "@/lib/supabase";
+
+const BRUTAL_BLACK = "#0A0A0A";
+const MINT = "#00D4AA";
+const MINT_DEEP = "#059669";
+const MINT_LIGHT = "#D1FAE5";
+const BG_LIGHT = "#ECFDF5";
+
+function BrutalCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={`relative ${className}`}
+      style={{
+        border: `4px solid ${BRUTAL_BLACK}`,
+        boxShadow: `6px 6px 0px ${BRUTAL_BLACK}`,
+        background: "#FFFFFF",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 export default function MediaLibraryPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  const [mediaItems, setMediaItems] = useState<StorageFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Check if Supabase Storage is available
+  const client = createClient();
+  const [storageMode, setStorageMode] = useState<"supabase" | "local">("local");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setStorageMode(client.storage ? "supabase" : "local");
+    }
+  }, []);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -51,166 +83,147 @@ export default function MediaLibraryPage() {
     loadMedia();
   }, [user, authLoading]);
 
-  const loadMedia = () => {
+  const loadMedia = async () => {
     try {
-      const stored = localStorage.getItem("sitemint_media");
-      if (stored) {
-        setMediaItems(JSON.parse(stored));
-      }
+      const files = await storage.list("media");
+      setMediaItems(files);
     } catch (e) {
       console.error("Error loading media:", e);
     }
     setLoading(false);
   };
 
-  const saveMedia = (items: MediaItem[]) => {
-    setMediaItems(items);
-    localStorage.setItem("sitemint_media", JSON.stringify(items));
-  };
-
-  const TOTAL_QUOTA = 4 * 1024 * 1024; // 4MB total limit for localStorage
-  const MAX_FILE_SIZE = 500 * 1024; // 500KB per file
-
-  const getStorageUsed = () => {
-    let total = 0;
-    for (const item of mediaItems) {
-      total += item.url.length * 0.75; // Approximate for base64
-    }
-    return total;
-  };
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const currentUsage = getStorageUsed();
+    setUploading(true);
+    setUploadProgress(0);
+
+    let uploaded = 0;
 
     for (const file of Array.from(files)) {
       if (file.size > MAX_FILE_SIZE) {
         toast({
           title: `File too large: ${file.name}`,
-          description: `Maximum file size is ${MAX_FILE_SIZE / 1024}KB. Your file is ${(file.size / 1024).toFixed(1)}KB.`,
+          description: `Maximum file size is ${MAX_FILE_SIZE / 1024 / 1024}MB. Your file is ${(file.size / 1024 / 1024).toFixed(1)}MB.`,
           variant: "destructive",
         });
         continue;
       }
 
-      const estimatedSize = file.size * 1.37; // base64 overhead
-      if (currentUsage + estimatedSize > TOTAL_QUOTA) {
-        toast({
-          title: "Storage limit reached",
-          description: `You've used ${(currentUsage / 1024 / 1024).toFixed(1)}MB of ${TOTAL_QUOTA / 1024 / 1024}MB. Delete some files or use Supabase storage for larger needs.`,
-          variant: "destructive",
-        });
-        break;
-      }
-    }
-
-    setUploading(true);
-    const newItems: MediaItem[] = [];
-    let quotaWarning = false;
-
-    for (const file of Array.from(files)) {
-      if (file.size > MAX_FILE_SIZE) continue;
-
       try {
-        const reader = new FileReader();
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = () => reject(new Error("Failed to read file"));
-          reader.readAsDataURL(file);
+        await storage.upload("media", file, (pct) => {
+          setUploadProgress(pct);
         });
-
-        const type = file.type.startsWith("video")
-          ? "video"
-          : file.type.includes("svg")
-          ? "svg"
-          : "image";
-
-        newItems.push({
-          id: generateId(),
-          user_id: user?.id || "local",
-          name: file.name,
-          url: dataUrl,
-          type: type as "image" | "video" | "svg",
-          size: file.size,
-          created_at: new Date().toISOString(),
-        });
+        uploaded++;
       } catch (err) {
         toast({
-          title: `Failed to read: ${file.name}`,
+          title: `Failed to upload: ${file.name}`,
+          description: String(err),
           variant: "destructive",
         });
       }
     }
 
-    if (newItems.length > 0) {
-      saveMedia([...newItems, ...mediaItems]);
-      const newUsage = currentUsage + newItems.reduce((acc, item) => acc + item.url.length * 0.75, 0);
-
-      if (newUsage > TOTAL_QUOTA * 0.8) {
-        toast({
-          title: `Storage at ${(newUsage / 1024 / 1024).toFixed(1)}MB / ${TOTAL_QUOTA / 1024 / 1024}MB`,
-          description: "Consider using Supabase storage for larger files.",
-          variant: "default",
-        });
-      } else {
-        toast({
-          title: `${newItems.length} file(s) uploaded`,
-          variant: "success",
-        });
-      }
+    if (uploaded > 0) {
+      await loadMedia();
+      toast({ title: `${uploaded} file(s) uploaded successfully`, variant: "success" });
     }
 
     setUploading(false);
-    // Reset input
+    setUploadProgress(0);
     e.target.value = "";
   };
 
-  const handleDelete = (id: string) => {
-    const updated = mediaItems.filter((m) => m.id !== id);
-    saveMedia(updated);
+  const handleDelete = async (id: string) => {
+    await storage.delete(id);
+    setMediaItems((prev) => prev.filter((m) => m.id !== id));
     toast({ title: "File deleted" });
   };
 
   const getIcon = (type: string) => {
     switch (type) {
-      case "image":
-        return <Image className="w-6 h-6" />;
-      case "video":
-        return <FileVideo className="w-6 h-6" />;
-      case "svg":
-        return <FileCode className="w-6 h-6" />;
-      default:
-        return <Image className="w-6 h-6" />;
+      case "image": return <Image className="w-6 h-6" />;
+      case "video": return <FileVideo className="w-6 h-6" />;
+      case "svg": return <FileCode className="w-6 h-6" />;
+      default: return <Image className="w-6 h-6" />;
     }
   };
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: BG_LIGHT }}>
+        <div className="animate-spin rounded-full h-8 w-8" style={{ border: `3px solid ${MINT_LIGHT}`, borderTopColor: MINT }} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
+    <div className="min-h-screen" style={{ background: BG_LIGHT }}>
+      {/* Header */}
+      <header
+        className="px-6 py-4"
+        style={{
+          background: "#FFFFFF",
+          borderBottom: `4px solid ${BRUTAL_BLACK}`,
+        }}
+      >
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/dashboard">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
+              <span
+                className="inline-flex items-center justify-center w-10 h-10 font-bold text-sm"
+                style={{
+                  border: `3px solid ${BRUTAL_BLACK}`,
+                  background: "#FFFFFF",
+                  color: BRUTAL_BLACK,
+                }}
+              >
+                ←
+              </span>
             </Link>
-            <h1 className="text-xl font-bold text-gray-900">Media Library</h1>
+            <div>
+              <h1 className="text-xl font-black" style={{ color: BRUTAL_BLACK }}>
+                Media Library
+              </h1>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {storageMode === "supabase" ? (
+                  <Database className="w-3 h-3" style={{ color: MINT_DEEP }} />
+                ) : (
+                  <HardDrive className="w-3 h-3" style={{ color: "#888" }} />
+                )}
+                <span className="text-xs font-bold" style={{ color: storageMode === "supabase" ? MINT_DEEP : "#888" }}>
+                  {storageMode === "supabase" ? "Supabase Storage" : "Local Storage"}
+                </span>
+              </div>
+            </div>
           </div>
           <div>
-            <Button asChild className="gap-2">
-              <label className="cursor-pointer">
+            <span
+              className="inline-flex items-center gap-2 px-5 py-2.5 font-bold text-sm cursor-pointer transition-all duration-100"
+              style={{
+                border: `3px solid ${BRUTAL_BLACK}`,
+                boxShadow: `4px 4px 0px ${MINT}`,
+                background: MINT,
+                color: "#FFFFFF",
+              }}
+              onMouseEnter={(e) => {
+                if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+                e.currentTarget.style.transform = "translate(2px, 2px)";
+                e.currentTarget.style.boxShadow = `2px 2px 0px ${MINT}`;
+              }}
+              onMouseLeave={(e) => {
+                if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+                e.currentTarget.style.transform = "translate(0px, 0px)";
+                e.currentTarget.style.boxShadow = `4px 4px 0px ${MINT}`;
+              }}
+            >
+              <label className="cursor-pointer flex items-center gap-2">
                 <Upload className="w-4 h-4" />
-                Upload Files
+                {uploading ? "Uploading..." : "Upload Files"}
                 <input
                   type="file"
                   accept="image/*,video/*,.svg"
@@ -220,118 +233,167 @@ export default function MediaLibraryPage() {
                   disabled={uploading}
                 />
               </label>
-            </Button>
+            </span>
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto p-6">
-        {uploading && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-blue-600 mr-2" />
-            <span className="text-gray-600">Uploading...</span>
+      {/* Upload progress bar */}
+      {uploading && (
+        <div className="max-w-6xl mx-auto px-6 pt-4">
+          <div className="w-full h-4" style={{ background: "#FFFFFF", border: `3px solid ${BRUTAL_BLACK}` }}>
+            <div
+              className="h-full transition-all duration-200"
+              style={{
+                width: `${uploadProgress}%`,
+                background: MINT,
+              }}
+            />
           </div>
-        )}
+          <div className="flex items-center gap-2 mt-2">
+            <Loader2 className="w-4 h-4 animate-spin" style={{ color: MINT_DEEP }} />
+            <span className="text-xs font-bold" style={{ color: BRUTAL_BLACK }}>
+              Uploading... {uploadProgress}%
+            </span>
+          </div>
+        </div>
+      )}
 
+      {/* Media grid */}
+      <main className="max-w-6xl mx-auto p-6">
         {mediaItems.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {mediaItems.map((item, i) => (
               <motion.div
                 key={item.id}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.03 }}
+                className="group"
               >
-                <Card className="overflow-hidden group">
-                  <div className="aspect-square bg-gray-100 relative">
+                <BrutalCard>
+                  <div
+                    className="aspect-square relative overflow-hidden"
+                    style={{ background: "#F8FAFC" }}
+                  >
                     {item.type === "image" || item.type === "svg" ? (
                       <img
                         src={item.url}
                         alt={item.name}
                         className="w-full h-full object-cover"
+                        loading="lazy"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400">
+                      <div className="w-full h-full flex items-center justify-center" style={{ color: "#BBB" }}>
                         {getIcon(item.type)}
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                    {/* Hover overlay */}
+                    <div
+                      className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"
+                      style={{ background: "rgba(10,10,10,0.6)" }}
+                    >
                       <Dialog>
                         <DialogTrigger asChild>
-                          <Button
-                            size="icon"
-                            variant="secondary"
-                            className="w-8 h-8"
+                          <span
+                            className="inline-flex items-center justify-center w-8 h-8 cursor-pointer transition-all duration-100"
+                            style={{
+                              background: "#FFFFFF",
+                              border: `2px solid ${BRUTAL_BLACK}`,
+                              color: BRUTAL_BLACK,
+                            }}
                           >
                             <ExternalLink className="w-4 h-4" />
-                          </Button>
+                          </span>
                         </DialogTrigger>
                         <DialogContent className="max-w-3xl">
                           <DialogHeader>
                             <DialogTitle>{item.name}</DialogTitle>
                           </DialogHeader>
-                          <div className="flex items-center justify-center bg-gray-100 rounded-xl p-4">
+                          <div className="flex items-center justify-center bg-gray-100 p-4 rounded-none" style={{ border: `3px solid ${BRUTAL_BLACK}` }}>
                             <img
                               src={item.url}
                               alt={item.name}
-                              className="max-w-full max-h-[60vh] object-contain rounded-lg"
+                              className="max-w-full max-h-[60vh] object-contain"
                             />
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 mt-2">
                             <Input
                               value={item.url}
                               readOnly
-                              className="text-xs font-mono"
+                              className="text-xs font-mono rounded-none"
                             />
-                            <Button
-                              variant="outline"
-                              size="sm"
+                            <span
+                              className="inline-flex items-center justify-center w-9 h-9 cursor-pointer"
+                              style={{
+                                border: `3px solid ${BRUTAL_BLACK}`,
+                                background: "#FFFFFF",
+                                color: BRUTAL_BLACK,
+                              }}
                               onClick={() => {
                                 navigator.clipboard.writeText(item.url);
                                 toast({ title: "URL copied!" });
                               }}
                             >
                               <Copy className="w-4 h-4" />
-                            </Button>
+                            </span>
                           </div>
                         </DialogContent>
                       </Dialog>
-                      <Button
-                        size="icon"
-                        variant="destructive"
-                        className="w-8 h-8"
+                      <span
+                        className="inline-flex items-center justify-center w-8 h-8 cursor-pointer"
+                        style={{
+                          background: "#DC2626",
+                          border: `2px solid ${BRUTAL_BLACK}`,
+                          color: "#FFFFFF",
+                        }}
                         onClick={() => handleDelete(item.id)}
                       >
                         <Trash2 className="w-4 h-4" />
-                      </Button>
+                      </span>
                     </div>
                   </div>
-                  <CardContent className="p-2">
-                    <p className="text-xs text-gray-600 truncate">
+                  <div className="p-2.5" style={{ borderTop: `2px solid ${BRUTAL_BLACK}` }}>
+                    <p className="text-xs font-bold truncate" style={{ color: BRUTAL_BLACK }}>
                       {item.name}
                     </p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs font-medium" style={{ color: "#888" }}>
                       {(item.size / 1024).toFixed(1)} KB
                     </p>
-                  </CardContent>
-                </Card>
+                  </div>
+                </BrutalCard>
               </motion.div>
             ))}
           </div>
         ) : (
-          <div className="text-center py-20">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Image className="w-10 h-10 text-blue-600" />
+          <div className="text-center py-24">
+            <div
+              className="w-24 h-24 mx-auto mb-6 flex items-center justify-center"
+              style={{
+                background: MINT_LIGHT,
+                border: `4px solid ${BRUTAL_BLACK}`,
+                boxShadow: `8px 8px 0px ${BRUTAL_BLACK}`,
+              }}
+            >
+              <Image className="w-10 h-10" style={{ color: MINT_DEEP }} />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+            <h3 className="text-2xl font-black mb-3" style={{ color: BRUTAL_BLACK }}>
               No media yet
             </h3>
-            <p className="text-gray-600 mb-6 max-w-md mx-auto">
-              Upload images, videos, and SVGs to use in your website designs.
+            <p className="font-medium mb-8 max-w-md mx-auto" style={{ color: "#666" }}>
+              Upload images, videos, and SVGs to use in your website designs. Files are stored in Supabase Storage.
             </p>
-            <Button asChild>
-              <label className="cursor-pointer">
-                <Upload className="w-4 h-4 mr-2" />
+            <span
+              className="inline-flex items-center gap-2 px-6 py-3 font-bold text-sm cursor-pointer"
+              style={{
+                border: `4px solid ${BRUTAL_BLACK}`,
+                boxShadow: `6px 6px 0px ${MINT}`,
+                background: MINT,
+                color: "#FFFFFF",
+              }}
+            >
+              <label className="cursor-pointer flex items-center gap-2">
+                <Upload className="w-4 h-4" />
                 Upload Your First File
                 <input
                   type="file"
@@ -342,7 +404,7 @@ export default function MediaLibraryPage() {
                   disabled={uploading}
                 />
               </label>
-            </Button>
+            </span>
           </div>
         )}
       </main>
