@@ -3,6 +3,16 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* ─── Neo-brutalism design tokens ────────────────────────── */
+  --brutal-black: #0A0A0A;
+  --mint: #00D4AA;
+  --mint-deep: #059669;
+  --mint-light: #D1FAE5;
+  --bg-light: #ECFDF5;
+  --bg-dark: #0A0A0A;
+  --text-muted: #666666;
+  --text-muted-light: #888888;
 }
 
 @theme inline {
@@ -23,4 +33,284 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Neo-brutalism Utility Classes
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── Borders ───────────────────────────────────────────── */
+
+.brutal-border {
+  border: 4px solid var(--brutal-black);
+}
+
+.brutal-border-3 {
+  border: 3px solid var(--brutal-black);
+}
+
+.brutal-border-2 {
+  border: 2px solid var(--brutal-black);
+}
+
+.brutal-border-white {
+  border: 4px solid #ffffff;
+}
+
+.brutal-border-white-3 {
+  border: 3px solid #ffffff;
+}
+
+.brutal-border-mint {
+  border: 4px solid var(--mint);
+}
+
+/* ─── Shadows ────────────────────────────────────────────── */
+
+.brutal-shadow {
+  box-shadow: 6px 6px 0px var(--brutal-black);
+}
+
+.brutal-shadow-sm {
+  box-shadow: 4px 4px 0px var(--brutal-black);
+}
+
+.brutal-shadow-lg {
+  box-shadow: 8px 8px 0px var(--brutal-black);
+}
+
+.brutal-shadow-mint {
+  box-shadow: 6px 6px 0px var(--mint);
+}
+
+.brutal-shadow-mint-sm {
+  box-shadow: 4px 4px 0px var(--mint);
+}
+
+.brutal-shadow-mint-lg {
+  box-shadow: 8px 8px 0px var(--mint);
+}
+
+.brutal-shadow-deep {
+  box-shadow: 6px 6px 0px var(--mint-deep);
+}
+
+/* ─── Cards ──────────────────────────────────────────────── */
+
+.brutal-card {
+  background: #ffffff;
+  border: 4px solid var(--brutal-black);
+  box-shadow: 6px 6px 0px var(--brutal-black);
+}
+
+.brutal-card-mint {
+  background: var(--mint);
+  border: 4px solid var(--brutal-black);
+  box-shadow: 8px 8px 0px var(--brutal-black);
+}
+
+.brutal-card-flat {
+  background: #ffffff;
+  border: 4px solid var(--brutal-black);
+  box-shadow: 8px 8px 0px var(--brutal-black);
+}
+
+/* ─── Buttons ────────────────────────────────────────────── */
+
+.brutal-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 800;
+  border: 4px solid var(--brutal-black);
+  box-shadow: 5px 5px 0px var(--brutal-black);
+  background: #ffffff;
+  color: var(--brutal-black);
+  transition: all 0.1s ease;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.brutal-btn:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 3px 3px 0px var(--brutal-black);
+}
+
+.brutal-btn:active {
+  transform: translate(3px, 3px);
+  box-shadow: 2px 2px 0px var(--brutal-black);
+}
+
+.brutal-btn-mint {
+  background: var(--mint);
+  color: #ffffff;
+  box-shadow: 5px 5px 0px var(--mint);
+  border-color: var(--brutal-black);
+}
+
+.brutal-btn-mint:hover {
+  box-shadow: 3px 3px 0px var(--mint);
+}
+
+.brutal-btn-dark {
+  background: var(--brutal-black);
+  color: #ffffff;
+  box-shadow: 5px 5px 0px var(--mint-deep);
+  border-color: #ffffff;
+}
+
+.brutal-btn-dark:hover {
+  box-shadow: 3px 3px 0px var(--mint-deep);
+}
+
+.brutal-btn-sm {
+  padding: 0.5rem 1.25rem;
+  font-size: 0.875rem;
+}
+
+.brutal-btn-lg {
+  padding: 1rem 2rem;
+  font-size: 1.125rem;
+}
+
+/* ─── Badges ─────────────────────────────────────────────── */
+
+.brutal-badge {
+  display: inline-block;
+  padding: 0.25rem 0.625rem;
+  font-weight: 800;
+  font-size: 0.75rem;
+  border: 3px solid var(--brutal-black);
+  box-shadow: 3px 3px 0px var(--brutal-black);
+  background: #ffffff;
+}
+
+.brutal-badge-mint {
+  background: var(--mint);
+  color: #ffffff;
+}
+
+.brutal-badge-dark {
+  background: var(--brutal-black);
+  color: #ffffff;
+}
+
+.brutal-badge-white {
+  background: #ffffff;
+  color: var(--brutal-black);
+}
+
+/* ─── Inline highlight box ──────────────────────────────── */
+
+.brutal-highlight {
+  display: inline-block;
+  background: var(--mint);
+  color: #ffffff;
+  box-shadow: 6px 6px 0px var(--brutal-black);
+  padding: 0.25rem 0.5rem;
+}
+
+/* ─── Section dividers ───────────────────────────────────── */
+
+.brutal-divider-bottom {
+  border-bottom: 4px solid var(--brutal-black);
+}
+
+.brutal-divider-top {
+  border-top: 4px solid var(--brutal-black);
+}
+
+/* ─── Hover lift effect ──────────────────────────────────── */
+
+.brutal-hover-lift {
+  transition: all 0.1s ease;
+}
+
+.brutal-hover-lift:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0px var(--mint);
+}
+
+.brutal-hover-lift-dark:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0px var(--brutal-black);
+}
+
+/* ─── Grid background ────────────────────────────────────── */
+
+.brutal-grid-bg {
+  background-image: linear-gradient(var(--brutal-black) 1px, transparent 1px),
+    linear-gradient(90deg, var(--brutal-black) 1px, transparent 1px);
+  background-size: 60px 60px;
+  opacity: 0.03;
+}
+
+/* ─── MISC ───────────────────────────────────────────────── */
+
+.brutal-icon-box {
+  width: 3.5rem;
+  height: 3.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mint-light);
+  border: 3px solid var(--brutal-black);
+}
+
+.brutal-monogram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  color: #ffffff;
+  font-family: monospace;
+}
+
+.brutal-bg-mint {
+  background: var(--mint);
+}
+
+.brutal-bg-light {
+  background: var(--bg-light);
+}
+
+.brutal-bg-dark {
+  background: var(--bg-dark);
+}
+
+.brutal-bg-white {
+  background: #ffffff;
+}
+
+.brutal-text-dark {
+  color: var(--brutal-black);
+}
+
+.brutal-text-muted {
+  color: var(--text-muted);
+}
+
+.brutal-text-muted-light {
+  color: var(--text-muted-light);
+}
+
+.brutal-text-white {
+  color: #ffffff;
+}
+
+.brutal-text-mint {
+  color: var(--mint);
+}
+
+/* ─── Responsive preview ─────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .brutal-btn:hover,
+  .brutal-btn-mint:hover,
+  .brutal-btn-dark:hover,
+  .brutal-hover-lift:hover,
+  .brutal-hover-lift-dark:hover {
+    transform: none !important;
+    box-shadow: inherit !important;
+  }
 }
