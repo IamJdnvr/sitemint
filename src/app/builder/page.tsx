@@ -19,7 +19,8 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
   useSortable,
-} from "@dnd-kit/sortable";import { Undo2,
+} from "@dnd-kit/sortable";
+import { Undo2,
   Redo2,
   Save,
   Eye,
