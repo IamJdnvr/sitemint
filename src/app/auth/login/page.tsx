@@ -189,12 +189,12 @@ export default function LoginPage() {
                   // Supabase rejected the request (anonymous not enabled or 422)
                   // Fall back to localStorage-based guest login
                   const localClient = createLocalAuthClient();
-                  const { error: localError } = await localClient.auth.signInAnonymously({
+                  const result = await localClient.auth.signInAnonymously({
                     options: { data: { is_guest: true, display_name: "Guest" } },
                   });
 
-                  if (localError) {
-                    toast({ title: "Error", description: localError.message, variant: "destructive" });
+                  if (result.error) {
+                    toast({ title: "Error", description: (result.error as Error).message, variant: "destructive" });
                     setLoading(false);
                   } else {
                     router.push("/dashboard");
