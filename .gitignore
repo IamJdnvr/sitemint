@@ -34,3 +34,5 @@ next-env.d.ts
 
 # freebuff / codebuff workspace data
 .freebuff/
+src/nul
+nul
